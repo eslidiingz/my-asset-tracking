@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788755743914,
+      "tag": "0000_swift_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788756125798,
+      "tag": "0001_tired_shadowcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788758047086,
+      "tag": "0002_shocking_lionheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788778409182,
+      "tag": "0003_blushing_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788779435112,
+      "tag": "0004_sudden_carmella_unuscione",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788783048755,
+      "tag": "0005_glamorous_white_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788785464992,
+      "tag": "0006_thankful_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788795739770,
+      "tag": "0007_remarkable_johnny_blaze",
+      "breakpoints": true
+    }
+  ]
+}

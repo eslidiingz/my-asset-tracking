@@ -1,0 +1,41 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+
+type DividendTransaction = { id: number; symbol: string; dividendAmount: number; withholdingTax: number; receivedAt: string };
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const date = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
+const pageSizes = [20, 50, 100];
+
+export function DividendTransactions({ transactions }: { transactions: DividendTransaction[] }) {
+  const years = useMemo(() => [...new Set(transactions.map((item) => new Date(item.receivedAt).getUTCFullYear()))].sort((a, b) => b - a), [transactions]);
+  const [year, setYear] = useState<number | "all">("all");
+  const [selectedMonth, setSelectedMonth] = useState<number | "all">("all");
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
+  const months = useMemo(() => year === "all" ? [] : [...new Set(transactions.filter((item) => new Date(item.receivedAt).getUTCFullYear() === year).map((item) => new Date(item.receivedAt).getUTCMonth()))].sort((a, b) => a - b), [transactions, year]);
+  const filtered = transactions.filter((item) => (year === "all" || new Date(item.receivedAt).getUTCFullYear() === year) && (selectedMonth === "all" || new Date(item.receivedAt).getUTCMonth() === selectedMonth));
+  const gross = filtered.reduce((total, item) => total + item.dividendAmount, 0);
+  const withholdingTax = filtered.reduce((total, item) => total + item.withholdingTax, 0);
+  const net = gross - withholdingTax;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * pageSize;
+  const visibleTransactions = filtered.slice(start, start + pageSize);
+
+  function chooseYear(value: number | "all") { setYear(value); setSelectedMonth("all"); setPage(1); }
+  function chooseMonth(value: number | "all") { setSelectedMonth(value); setPage(1); }
+  function choosePageSize(value: number) { setPageSize(value); setPage(1); }
+
+  return <section className="bento-card mt-5 !p-0"><div className="border-b border-line px-5 py-5 md:px-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-extrabold tracking-[-.03em]">Dividend transactions</h2><p className="mt-0.5 text-xs text-muted">Gross payment, tax withheld, and received date.</p></div><span className="category-pill">{filtered.length} shown</span></div><div className="mt-4 space-y-2"><div className="flex flex-wrap gap-1.5" aria-label="Filter by year"><FilterButton active={year === "all"} onClick={() => chooseYear("all")}>All years</FilterButton>{years.map((value) => <FilterButton key={value} active={year === value} onClick={() => chooseYear(value)}>{value}</FilterButton>)}</div>{year !== "all" && <div className="flex flex-wrap gap-1.5" aria-label="Filter by month"><FilterButton active={selectedMonth === "all"} onClick={() => chooseMonth("all")}>All months</FilterButton>{months.map((value) => <FilterButton key={value} active={selectedMonth === value} onClick={() => chooseMonth(value)}>{month.format(new Date(Date.UTC(2026, value, 1)))}</FilterButton>)}</div>}</div><div className="mt-4 grid grid-cols-3 gap-2"><Total label="Gross dividend" value={money.format(gross)} /><Total label="WHT" value={money.format(withholdingTax)} negative /><Total label="Net received" value={money.format(net)} positive /></div></div>{filtered.length === 0 ? <div className="px-6 py-14 text-center"><p className="font-bold">No matching dividends</p><p className="mt-1 text-sm text-muted">Choose another year or month to see transactions.</p></div> : <><div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left"><thead><tr className="border-b border-line text-[.62rem] font-extrabold uppercase tracking-[.14em] text-muted"><th className="px-6 py-3">Symbol</th><th className="px-6 py-3 text-right">Dividend amount</th><th className="px-6 py-3 text-right">WHT</th><th className="px-6 py-3 text-right">Net received</th><th className="px-6 py-3 text-right">Received date</th></tr></thead><tbody>{visibleTransactions.map((item) => <tr key={item.id} className="border-b border-line last:border-0 hover:bg-soft"><td className="px-6 py-4 text-sm font-extrabold">{item.symbol}</td><td className="px-6 py-4 text-right text-sm font-semibold">{money.format(item.dividendAmount)}</td><td className="px-6 py-4 text-right text-sm font-semibold text-negative">−{money.format(item.withholdingTax)}</td><td className="px-6 py-4 text-right text-sm font-extrabold text-positive">{money.format(item.dividendAmount - item.withholdingTax)}</td><td className="px-6 py-4 text-right text-sm text-muted">{date.format(new Date(item.receivedAt))}</td></tr>)}</tbody></table></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4 md:px-6"><p className="text-xs font-semibold text-muted">Showing {start + 1}–{Math.min(start + pageSize, filtered.length)} of {filtered.length}</p><div className="flex flex-wrap items-center gap-1.5"><div className="mr-2 flex gap-1" aria-label="Items per page">{pageSizes.map((value) => <FilterButton key={value} active={pageSize === value} onClick={() => choosePageSize(value)}>{value}</FilterButton>)}</div><button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg bg-soft px-2.5 py-1.5 text-xs font-bold text-muted transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-40">Previous</button><span className="px-1 text-xs font-bold text-muted">{currentPage} / {pageCount}</span><button type="button" disabled={currentPage === pageCount} onClick={() => setPage((value) => value + 1)} className="rounded-lg bg-soft px-2.5 py-1.5 text-xs font-bold text-muted transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-40">Next</button></div></div></>}</section>;
+}
+
+function FilterButton({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+  return <button type="button" aria-pressed={active} onClick={onClick} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-bold transition", active ? "bg-accent text-[#10140a]" : "bg-soft text-muted hover:text-ink")}>{children}</button>;
+}
+
+function Total({ label, value, positive = false, negative = false }: { label: string; value: string; positive?: boolean; negative?: boolean }) {
+  return <div className="rounded-xl bg-soft px-3 py-2.5"><p className="text-[.6rem] font-extrabold uppercase tracking-[.1em] text-muted">{label}</p><p className={cn("mt-1 text-sm font-extrabold", positive && "text-positive", negative && "text-negative")}>{value}</p></div>;
+}

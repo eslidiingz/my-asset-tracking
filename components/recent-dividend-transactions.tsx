@@ -1,0 +1,10 @@
+import Link from "next/link";
+
+type Transaction = { id: number; symbol: string; dividendAmount: number; withholdingTax: number; receivedAt: Date };
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const date = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+
+export function RecentDividendTransactions({ transactions }: { transactions: Transaction[] }) {
+  const recent = transactions.slice(0, 10);
+  return <section className="bento-card mt-5 !p-0"><div className="flex items-center justify-between border-b border-line px-5 py-5 md:px-6"><div><h2 className="text-lg font-extrabold tracking-[-.03em]">Latest dividend transactions</h2><p className="mt-0.5 text-xs text-muted">Your 10 most recent payments.</p></div><Link href="/dividends" className="rounded-lg bg-soft px-3 py-2 text-xs font-bold text-muted transition hover:text-ink">View all</Link></div>{recent.length === 0 ? <div className="px-6 py-14 text-center"><p className="font-bold">No dividends recorded yet</p></div> : <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left"><thead><tr className="border-b border-line text-[.62rem] font-extrabold uppercase tracking-[.14em] text-muted"><th className="px-6 py-3">Symbol</th><th className="px-6 py-3 text-right">Dividend</th><th className="px-6 py-3 text-right">WHT</th><th className="px-6 py-3 text-right">Net</th><th className="px-6 py-3 text-right">Received</th></tr></thead><tbody>{recent.map((item) => <tr key={item.id} className="border-b border-line last:border-0 hover:bg-soft"><td className="px-6 py-4 text-sm font-extrabold">{item.symbol}</td><td className="px-6 py-4 text-right text-sm font-semibold">{money.format(item.dividendAmount)}</td><td className="px-6 py-4 text-right text-sm font-semibold text-negative">−{money.format(item.withholdingTax)}</td><td className="px-6 py-4 text-right text-sm font-extrabold text-positive">{money.format(item.dividendAmount - item.withholdingTax)}</td><td className="px-6 py-4 text-right text-sm text-muted">{date.format(item.receivedAt)}</td></tr>)}</tbody></table></div>}</section>;
+}

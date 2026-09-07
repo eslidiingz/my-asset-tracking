@@ -1,0 +1,1 @@
+ALTER TABLE `assets` ADD `average_price` real DEFAULT 0 NOT NULL;
