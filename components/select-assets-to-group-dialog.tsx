@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { moveAssetsToGroup } from "@/app/actions/assets";
 import { AssetMark } from "@/components/asset-mark";
 import type { Asset, AssetGroup } from "@/lib/db";
+import { useToast } from "@/components/ui/toast-provider";
 
 const stockColor = "#c8ff52";
 
@@ -27,9 +28,10 @@ export function SelectAssetsToGroupDialog({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const { showToast } = useToast();
   const stocks = assets.filter((asset) => asset.category === "Stocks" && asset.groupId !== group.id);
   const allSelected = stocks.length > 0 && selectedIds.size === stocks.length;
-  const groupName = (id: number | null) => groups.find((assetGroup) => assetGroup.id === id)?.name ?? "No group";
+  const groupFor = (id: number | null) => groups.find((assetGroup) => assetGroup.id === id);
 
   function toggleAsset(id: number) {
     setSelectedIds((current) => {
@@ -55,9 +57,11 @@ export function SelectAssetsToGroupDialog({
       if (result.success) {
         setSelectedIds(new Set());
         onOpenChange(false);
+        showToast(`${selectedIds.size} ${selectedIds.size === 1 ? "asset" : "assets"} added to ${group.name}.`, "success");
         router.refresh();
       } else {
         setError(result.error);
+        showToast(result.error, "error");
       }
     });
   }
@@ -87,7 +91,7 @@ export function SelectAssetsToGroupDialog({
               {stocks.map((asset) => <button key={asset.id} type="button" onClick={() => toggleAsset(asset.id)} aria-pressed={selectedIds.has(asset.id)} className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-canvas px-3 py-3 text-left transition hover:bg-soft aria-pressed:border-accent aria-pressed:bg-soft">
                 <span className="grid size-5 shrink-0 place-items-center rounded border border-line bg-surface text-[#10140a]">{selectedIds.has(asset.id) && <Check size={14} className="text-accent" />}</span>
                 <AssetMark category={asset.category} color={stockColor} />
-                <span className="min-w-0"><span className="flex flex-wrap items-center gap-1.5"><span className="text-sm font-bold">{asset.symbol}</span>{asset.groupId !== null && <span className="category-pill !px-1.5 !py-0 !text-[9px]">{groupName(asset.groupId)}</span>}</span><span className="mt-0.5 block text-xs text-muted">{asset.units} units</span></span>
+                <span className="min-w-0"><span className="flex flex-wrap items-center gap-1.5"><span className="text-sm font-bold">{asset.symbol}</span>{asset.groupId !== null && (() => { const assetGroup = groupFor(asset.groupId); return <span className="category-pill !px-1.5 !py-0 !text-[9px]" style={assetGroup ? { backgroundColor: `${assetGroup.color}1F`, borderColor: `${assetGroup.color}66`, color: assetGroup.color } : undefined}>{assetGroup?.name ?? "No group"}</span>; })()}</span><span className="mt-0.5 block text-xs text-muted">{asset.units} units</span></span>
               </button>)}
             </div>
           </div>

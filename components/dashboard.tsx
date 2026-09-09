@@ -1,21 +1,24 @@
 import { ArrowUpRight, ChevronRight, MoreHorizontal, Sparkles, Wallet } from "lucide-react";
-import type { Asset } from "@/lib/db";
-import { formatCurrency } from "@/lib/utils";
+import type { Asset, AssetGroup, AssetGroupValueTransaction } from "@/lib/db";
+import { assetCost, currencyForAssetCategory, formatCurrency } from "@/lib/utils";
 import { AssetMark } from "@/components/asset-mark";
 import { Button } from "@/components/ui/button";
 import { PortfolioChart } from "@/components/portfolio-chart";
 import { GrowthChart } from "@/components/growth-chart";
 import type { PortfolioGrowth } from "@/lib/portfolio";
+import { GroupValueHistory } from "@/components/group-value-history";
+import { GroupValueSummary } from "@/components/group-value-summary";
 
-const allocationColors: Record<string, string> = { Stocks: "#c8ff52", Property: "#9478ff", Cash: "#5de4c7", Crypto: "#f1bb5b" };
+const allocationColors: Record<string, string> = { Stocks: "#c8ff52", Property: "#9478ff", Cash: "#5de4c7", Crypto: "#f1bb5b", "Mutual Fund": "#72ddf7", Gold: "#ffb86c", "Private Fund": "#bc8cff", TSD: "#74d99c" };
 
-export function Dashboard({ assets, growth }: { assets: Asset[]; growth: PortfolioGrowth }) {
-  const total = assets.reduce((sum, asset) => sum + asset.units * asset.averagePrice, 0);
+export function Dashboard({ assets, growth, groups, groupValueTransactions }: { assets: Asset[]; growth: PortfolioGrowth; groups: AssetGroup[]; groupValueTransactions: AssetGroupValueTransaction[] }) {
+  const total = assets.reduce((sum, asset) => sum + assetCost(asset), 0);
   const allocation = Object.entries(assets.reduce<Record<string, number>>((result, asset) => {
-    result[asset.category] = (result[asset.category] ?? 0) + asset.units * asset.averagePrice;
+    result[asset.category] = (result[asset.category] ?? 0) + assetCost(asset);
     return result;
   }, {})).sort((a, b) => b[1] - a[1]);
-  const annualDividend = assets.filter(asset => asset.category === "Stocks" && asset.dividendYield).reduce((total, asset) => total + asset.units * asset.averagePrice * (asset.dividendYield ?? 0) / 100, 0);
+  const annualDividend = assets.filter(asset => asset.category === "Stocks" && asset.dividendYield).reduce((total, asset) => total + assetCost(asset) * (asset.dividendYield ?? 0) / 100, 0);
+  const topHoldings = assets.slice(0, 10);
 
   return <main className="mx-auto w-full max-w-[1480px] px-4 pb-28 pt-6 sm:px-6 md:pt-8 lg:px-8 lg:pb-10">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">Portfolio · Live overview</p><h1 className="mt-2 text-[clamp(1.75rem,5.5vw,2.8rem)] font-extrabold leading-none tracking-[-.055em]">Your financial picture</h1></div><Button variant="outline" className="h-9 text-muted">6 months <ChevronRight size={14} /></Button></div>
@@ -31,6 +34,10 @@ export function Dashboard({ assets, growth }: { assets: Asset[]; growth: Portfol
 
     <GrowthChart growth={growth}/>
 
-    <section className="bento-card !mt-3 overflow-hidden !p-0 md:!mt-4"><div className="flex items-center justify-between border-b border-line px-5 py-5 md:px-6"><div><h2 className="text-lg font-extrabold tracking-[-.03em]">Top holdings</h2><p className="mt-0.5 text-xs text-muted">Ranked by cost basis</p></div><Button variant="ghost" size="sm">See all <ChevronRight size={14}/></Button></div><div><table className="holdings-table w-full text-left"><thead><tr><th>Asset</th><th>Category</th><th className="text-right">Average price</th><th className="text-right">Yield</th><th className="text-right">Cost basis</th></tr></thead><tbody>{assets.map(asset => <tr key={asset.id}><td><div className="flex items-center gap-3"><AssetMark category={asset.category} color={allocationColors[asset.category]}/><div className="min-w-0"><p className="truncate text-sm font-bold">{asset.symbol}</p><p className="text-[11px] text-muted">{asset.units} units</p></div></div></td><td data-secondary><span className="category-pill">{asset.category}</span></td><td data-secondary className="text-right text-sm font-semibold">{formatCurrency(asset.averagePrice)}</td><td data-secondary className="text-right text-sm font-bold text-accent">{asset.dividendYield ? `${asset.dividendYield.toFixed(2)}%` : "—"}</td><td className="text-right text-sm font-extrabold">{formatCurrency(asset.units * asset.averagePrice)}</td></tr>)}</tbody></table></div></section>
+    <GroupValueHistory groups={groups} transactions={groupValueTransactions}/>
+
+    <GroupValueSummary groups={groups} transactions={groupValueTransactions}/>
+
+    <section className="bento-card !mt-3 overflow-hidden !p-0 md:!mt-4"><div className="flex items-center justify-between border-b border-line px-5 py-5 md:px-6"><div><h2 className="text-lg font-extrabold tracking-[-.03em]">Top holdings</h2><p className="mt-0.5 text-xs text-muted">Ranked by cost basis</p></div><Button variant="ghost" size="sm">See all <ChevronRight size={14}/></Button></div><div><table className="holdings-table w-full text-left"><thead><tr><th>Asset</th><th>Category</th><th className="text-right">Average price</th><th className="text-right">Yield</th><th className="text-right">Cost basis</th></tr></thead><tbody>{topHoldings.map(asset => <tr key={asset.id}><td><div className="flex items-center gap-3"><AssetMark category={asset.category} color={allocationColors[asset.category]}/><div className="min-w-0"><p className="truncate text-sm font-bold">{asset.symbol}</p><p className="text-[11px] text-muted">{asset.units} units</p></div></div></td><td data-secondary><span className="category-pill">{asset.category}</span></td><td data-secondary className="text-right text-sm font-semibold">{formatCurrency(asset.averagePrice, currencyForAssetCategory(asset.category))}</td><td data-secondary className="text-right text-sm font-bold text-accent">{asset.dividendYield ? `${asset.dividendYield.toFixed(2)}%` : "—"}</td><td className="text-right text-sm font-extrabold">{formatCurrency(assetCost(asset), currencyForAssetCategory(asset.category))}</td></tr>)}</tbody></table></div></section>
   </main>;
 }

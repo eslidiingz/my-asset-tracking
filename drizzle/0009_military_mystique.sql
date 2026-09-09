@@ -1,0 +1,1 @@
+ALTER TABLE `asset_group` ADD `color` text DEFAULT '#D8E7FF' NOT NULL;

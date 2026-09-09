@@ -27,6 +27,9 @@ export const assetGroups = sqliteTable("asset_group", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  color: text("color").notNull().default("#C8FF52"),
+  visibleInAssetList: integer("visible_in_asset_list", { mode: "boolean" }).notNull().default(true),
 }, (table) => [index("asset_group_user_id_idx").on(table.userId)]);
 
 export const verifications = sqliteTable("verification", {
@@ -36,7 +39,7 @@ export const verifications = sqliteTable("verification", {
 
 export const assets = sqliteTable("assets", {
   id: integer("id").primaryKey({ autoIncrement: true }), userId: text("user_id").references(() => users.id, { onDelete: "cascade" }), symbol: text("symbol").notNull(),
-  category: text("category", { enum: ["Stocks", "Crypto", "Cash", "Property"] }).notNull(), units: real("units").notNull(), averagePrice: real("average_price").notNull().default(0),
+  category: text("category", { enum: ["Stocks", "Crypto", "Cash", "Property", "Mutual Fund", "Gold", "Private Fund", "TSD"] }).notNull(), units: real("units").notNull(), averagePrice: real("average_price").notNull().default(0), totalCost: real("total_cost"),
   dividendYield: real("dividend_yield"), color: text("color").default("#c8ff52").notNull(), groupId: integer("group_id").references(() => assetGroups.id, { onDelete: "set null" }),
 }, (table) => [index("assets_user_id_idx").on(table.userId)]);
 
@@ -44,6 +47,21 @@ export const portfolioSnapshots = sqliteTable("portfolio_snapshot", {
   id: integer("id").primaryKey({ autoIncrement: true }), userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   recordedAt: integer("recorded_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(), totalValue: real("total_value").notNull(),
 }, (table) => [index("portfolio_snapshot_user_date_idx").on(table.userId, table.recordedAt)]);
+
+export const assetGroupValueTransactions = sqliteTable("asset_group_value_transaction", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  groupId: integer("group_id").notNull().references(() => assetGroups.id, { onDelete: "cascade" }),
+  totalValue: real("total_value").notNull(),
+  recordedAt: integer("recorded_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
+}, (table) => [index("asset_group_value_transaction_user_group_date_idx").on(table.userId, table.groupId, table.recordedAt)]);
+
+export const currencySettings = sqliteTable("currency_settings", {
+  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  usdToThbRate: real("usd_to_thb_rate").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
+});
 
 export const dividendTransactions = sqliteTable("dividend_transaction", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -57,3 +75,5 @@ export const dividendTransactions = sqliteTable("dividend_transaction", {
 
 export type Asset = typeof assets.$inferSelect;
 export type AssetGroup = typeof assetGroups.$inferSelect;
+export type AssetGroupValueTransaction = typeof assetGroupValueTransactions.$inferSelect;
+export type CurrencySettings = typeof currencySettings.$inferSelect;

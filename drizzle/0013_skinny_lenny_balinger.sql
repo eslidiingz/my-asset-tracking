@@ -1,0 +1,1 @@
+ALTER TABLE `asset_group` ADD `visible_in_asset_list` integer DEFAULT true NOT NULL;

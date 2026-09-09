@@ -7,5 +7,6 @@ const authToken = process.env.TURSO_AUTH_TOKEN;
 if (!url) throw new Error("TURSO_DATABASE_URL is not configured");
 if (!authToken) throw new Error("TURSO_AUTH_TOKEN is not configured");
 
-export const db = drizzle(createClient({ url, authToken }), { schema });
+export const client = createClient({ url, authToken });
+export const db = drizzle(client, { schema });
 export { schema };

@@ -6,6 +6,7 @@ import { LoaderCircle, Plus, X } from "lucide-react";
 import { addDividendTransaction, type DividendFormState } from "@/app/actions/assets";
 import { DatePicker } from "@/components/ui/date-picker";
 import { SymbolCombobox } from "@/components/ui/symbol-combobox";
+import { useToast } from "@/components/ui/toast-provider";
 
 const initialState: DividendFormState = { error: "", success: false };
 
@@ -13,7 +14,8 @@ export function AddDividendDialog({ symbols }: { symbols: string[] }) {
   const [open, setOpen] = useState(false);
   const [receivedAt, setReceivedAt] = useState("");
   const [state, action, pending] = useActionState(addDividendTransaction, initialState);
-  useEffect(() => { if (state.success) setOpen(false); }, [state.success]);
+  const { showToast } = useToast();
+  useEffect(() => { if (state.success) { showToast("Dividend recorded.", "success"); setOpen(false); } else if (state.error) showToast(state.error, "error"); }, [showToast, state]);
 
   return <Dialog.Root open={open} onOpenChange={setOpen}>
     <Dialog.Trigger asChild><button className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-[#10140a] transition hover:bg-[#d5ff75]"><Plus size={16}/>Record dividend</button></Dialog.Trigger>

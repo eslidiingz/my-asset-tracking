@@ -57,6 +57,55 @@
       "when": 1788795739770,
       "tag": "0007_remarkable_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788805870837,
+      "tag": "0008_fast_micromax",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788806456565,
+      "tag": "0009_military_mystique",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788806716775,
+      "tag": "0010_useful_mach_iv",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1788807000000,
+      "tag": "0011_add_asset_total_cost",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1788957880016,
+      "tag": "0012_chief_black_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1788960192552,
+      "tag": "0013_skinny_lenny_balinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1788960436914,
+      "tag": "0014_living_brood",
+      "breakpoints": true
     }
   ]
 }
