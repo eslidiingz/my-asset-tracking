@@ -53,6 +53,7 @@ export const assetGroupValueTransactions = sqliteTable("asset_group_value_transa
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   groupId: integer("group_id").notNull().references(() => assetGroups.id, { onDelete: "cascade" }),
   totalValue: real("total_value").notNull(),
+  totalCost: real("total_cost"),
   recordedAt: integer("recorded_at", { mode: "timestamp" }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),
 }, (table) => [index("asset_group_value_transaction_user_group_date_idx").on(table.userId, table.groupId, table.recordedAt)]);
@@ -67,6 +68,7 @@ export const dividendTransactions = sqliteTable("dividend_transaction", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   symbol: text("symbol").notNull(),
+  currency: text("currency", { enum: ["USD", "THB"] }).notNull().default("USD"),
   dividendAmount: real("dividend_amount").notNull(),
   withholdingTax: real("withholding_tax").notNull().default(0),
   receivedAt: integer("received_at", { mode: "timestamp" }).notNull(),

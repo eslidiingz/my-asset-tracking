@@ -5,12 +5,16 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { BarChart3, LoaderCircle, Pencil, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { updateAssetGroupValueTransactions } from "@/app/actions/assets";
+import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useToast } from "@/components/ui/toast-provider";
 import type { AssetGroup, AssetGroupValueTransaction } from "@/lib/db";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const chartMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+const monthFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+const chartValueFormatter = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
 function toDateValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -46,26 +50,49 @@ export function GroupValueHistory({ groups, transactions }: { groups: AssetGroup
   const availableGroups = groups.filter((group) => transactions.some((transaction) => transaction.groupId === group.id));
   const [groupId, setGroupId] = useState<number | null>(availableGroups[0]?.id ?? null);
   const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [historyYear, setHistoryYear] = useState<number | "all">("all");
+  const [historyMonth, setHistoryMonth] = useState<number | "all">("all");
   useEffect(() => {
     if (!availableGroups.some((group) => group.id === groupId)) setGroupId(availableGroups[0]?.id ?? null);
   }, [availableGroups, groupId]);
   const points = useMemo(() => transactions.filter((transaction) => transaction.groupId === groupId), [groupId, transactions]);
   const selectedGroup = groups.find((group) => group.id === groupId);
-  const { path, area } = useMemo(() => {
-    const values = points.map((point) => point.totalValue);
+  const historyYears = useMemo(() => [...new Set(points.map((point) => new Date(point.recordedAt).getFullYear()))].sort((a, b) => b - a), [points]);
+  const historyMonths = useMemo(() => historyYear === "all" ? [] : [...new Set(points.filter((point) => new Date(point.recordedAt).getFullYear() === historyYear).map((point) => new Date(point.recordedAt).getMonth()))].sort((a, b) => a - b), [historyYear, points]);
+  const filteredHistory = points.filter((point) => (historyYear === "all" || new Date(point.recordedAt).getFullYear() === historyYear) && (historyMonth === "all" || new Date(point.recordedAt).getMonth() === historyMonth));
+  const chartPoints = useMemo(() => {
+    const latestPointByMonth = new Map<string, { point: AssetGroupValueTransaction; index: number }>();
+
+    points.forEach((point, index) => {
+      const date = new Date(point.recordedAt);
+      const month = `${date.getFullYear()}-${date.getMonth()}`;
+      latestPointByMonth.set(month, { point, index });
+    });
+
+    return [...latestPointByMonth.values()].slice(-6).map(({ point }) => point);
+  }, [points]);
+  const { path, area, yAxisLabels } = useMemo(() => {
+    const values = chartPoints.map((point) => point.totalValue);
     const min = Math.min(...values) * .96;
     const max = Math.max(...values) * 1.02;
     const range = max - min || 1;
     const coordinates = values.map((value, index) => [index / Math.max(values.length - 1, 1) * 100, 92 - ((value - min) / range * 80)] as const);
     const line = coordinates.map(([x, y], index) => `${index ? "L" : "M"}${x},${y}`).join(" ");
-    return { path: line, area: `${line} L100,100 L0,100 Z` };
-  }, [points]);
+    return {
+      path: line,
+      area: `${line} L100,100 L0,100 Z`,
+      yAxisLabels: [
+        { value: max, position: 12 },
+        { value: min + range / 2, position: 52 },
+        { value: min, position: 92 },
+      ],
+    };
+  }, [chartPoints]);
 
   if (availableGroups.length === 0) return <section className="bento-card !mt-3 md:!mt-4"><div className="flex items-start gap-3"><span className="icon-button"><BarChart3 size={17}/></span><div><p className="label">Group value history</p><h2 className="mt-1 text-lg font-extrabold tracking-[-.03em]">No group valuations yet</h2><p className="mt-1 text-xs leading-5 text-muted">Record an update from Assets to see each group&apos;s value over time here.</p></div></div></section>;
 
   const latest = points.at(-1);
-  return <><section className="bento-card !mt-3 md:!mt-4"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className="icon-button"><BarChart3 size={17}/></span><p className="label">Group value history</p></div><p className="mt-3 text-2xl font-extrabold tracking-[-.05em]">{formatCurrency(latest?.totalValue ?? 0, "THB")}</p><p className="mt-1 text-[11px] text-muted">{selectedGroup?.name} · last updated {latest ? dateFormatter.format(latest.recordedAt) : "—"}</p></div><div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-soft p-1">{availableGroups.map((group) => <button key={group.id} type="button" aria-pressed={groupId === group.id} onClick={() => setGroupId(group.id)} className={cn("shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition", groupId === group.id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink")}><span className="mr-1.5 inline-block size-1.5 rounded-full" style={{ backgroundColor: group.color }}/>{group.name}</button>)}</div></div>
-    <div className="relative mt-6 h-40"><div className="absolute inset-0 chart-grid"/><svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-label={`${selectedGroup?.name} value history`} role="img"><defs><linearGradient id="group-value-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={selectedGroup?.color ?? "#c8ff52"} stopOpacity=".3"/><stop offset="1" stopColor={selectedGroup?.color ?? "#c8ff52"} stopOpacity="0"/></linearGradient></defs><path d={area} fill="url(#group-value-fill)"/><path d={path} fill="none" stroke={selectedGroup?.color ?? "#c8ff52"} strokeWidth="1.4" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round"/></svg><div className="absolute bottom-0 flex w-full justify-between text-[9px] font-semibold text-muted">{points.filter((_, index) => index === 0 || index === points.length - 1 || (points.length > 2 && index === Math.floor(points.length / 2))).map((point) => <span key={point.id}>{dateFormatter.format(point.recordedAt)}</span>)}</div></div>
-    <div className="mt-6 border-t border-line pt-4"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-bold text-muted">Recorded batches</p><p className="text-[11px] text-muted">{points.length} entries</p></div><div className="max-h-52 space-y-2 overflow-y-auto pr-1">{[...points].reverse().map((transaction) => <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-canvas px-3 py-2.5"><div><p className="text-sm font-bold">{formatCurrency(transaction.totalValue, "THB")}</p><p className="mt-0.5 text-[11px] text-muted">{dateFormatter.format(transaction.recordedAt)} · batch date</p></div><button type="button" onClick={() => setEditingDate(toDateValue(transaction.recordedAt))} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-soft px-2.5 text-xs font-bold text-muted transition hover:text-ink"><Pencil size={13}/>Edit batch</button></div>)}</div></div>
-  </section>{editingDate && <EditGroupValueTransactionDialog transactions={transactions.filter((transaction) => toDateValue(transaction.recordedAt) === editingDate)} groups={groups} recordedAt={editingDate} onClose={() => setEditingDate(null)}/>}</>;
+  return <><section className="bento-card !mt-3 md:!mt-4"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className="icon-button"><BarChart3 size={17}/></span><p className="label">Group value history</p></div><p className="mt-3 text-2xl font-extrabold tracking-[-.05em]">{formatCurrency(latest?.totalValue ?? 0, "THB")}</p><p className="mt-1 text-[11px] text-muted">{selectedGroup?.name} · last updated {latest ? dateFormatter.format(latest.recordedAt) : "—"}</p></div><Tabs value={String(groupId ?? "")} onValueChange={(value) => { setGroupId(Number(value)); setHistoryYear("all"); setHistoryMonth("all"); }} variant="segment" className="max-w-full"><TabsList className="flex max-w-full gap-1.5 overflow-x-auto rounded-none border-0 bg-transparent p-0 [&>div]:shrink-0">{availableGroups.map((group) => <TabsTrigger key={group.id} value={String(group.id)} className={groupId === group.id ? "h-8 whitespace-nowrap rounded-lg px-2.5 text-xs font-extrabold text-[#10140a] hover:text-[#10140a]" : "h-8 whitespace-nowrap rounded-lg bg-soft px-2.5 text-xs font-bold text-muted hover:text-ink"} indicatorClassName="bg-accent"><span className="mr-1.5 inline-block size-1.5 rounded-full" style={{ backgroundColor: group.color }}/>{group.name}</TabsTrigger>)}</TabsList></Tabs></div>
+    <div className="relative mt-6 h-40"><div className="absolute inset-y-0 left-0 w-10 text-right text-[9px] font-semibold text-muted">{yAxisLabels.map((label) => <span key={label.position} className="absolute right-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${label.position}%` }}>{chartValueFormatter.format(label.value)}</span>)}</div><div className="absolute inset-y-0 left-12 right-0"><div className="absolute inset-0 chart-grid"/><svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-label={`${selectedGroup?.name} value history`} role="img"><defs><linearGradient id="group-value-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={selectedGroup?.color ?? "#c8ff52"} stopOpacity=".3"/><stop offset="1" stopColor={selectedGroup?.color ?? "#c8ff52"} stopOpacity="0"/></linearGradient></defs><path d={area} fill="url(#group-value-fill)"/><path d={path} fill="none" stroke={selectedGroup?.color ?? "#c8ff52"} strokeWidth="1.4" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round"/></svg><div className="absolute inset-x-0 bottom-0 text-[9px] font-semibold text-muted">{chartPoints.map((point, index) => <span key={point.id} title={dateFormatter.format(point.recordedAt)} className={cn("absolute bottom-0 whitespace-nowrap", index === 0 ? "translate-x-0" : index === chartPoints.length - 1 ? "-translate-x-full" : "-translate-x-1/2")} style={{ left: `${index / Math.max(chartPoints.length - 1, 1) * 100}%` }}>{chartMonthFormatter.format(point.recordedAt)}</span>)}</div></div></div>
+  </section></>;
 }

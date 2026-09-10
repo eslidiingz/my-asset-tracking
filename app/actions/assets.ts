@@ -33,7 +33,7 @@ const groupValueTransactionEditSchema = z.object({
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 const groupValueTransactionBatchEditSchema = z.object({
-  updates: z.array(z.object({ id: z.number().int().positive(), totalValue: z.number().nonnegative() })).min(1),
+  updates: z.array(z.object({ id: z.number().int().positive(), totalValue: z.number().nonnegative(), totalCost: z.number().nonnegative().nullable().optional() })).min(1),
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
@@ -50,7 +50,7 @@ export async function addAsset(_state: AssetFormState, formData: FormData): Prom
   if (!parsed.success) return { error: "Check the asset details and try again.", success: false };
   const asset = parsed.data;
   if (!await validGroupId(asset.groupId, session.user.id)) return { error: "Choose a valid asset group.", success: false };
-  await db.insert(assets).values({ ...asset, symbol: asset.symbol.toUpperCase(), userId: session.user.id, dividendYield: asset.category === "Stocks" ? asset.dividendYield ?? null : null });
+  await db.insert(assets).values({ ...asset, symbol: asset.symbol.toUpperCase(), userId: session.user.id, dividendYield: asset.category === "Stocks" || asset.category === "TSD" ? asset.dividendYield ?? null : null });
   const holdings = await db.select({ units: assets.units, averagePrice: assets.averagePrice, totalCost: assets.totalCost }).from(assets).where(eq(assets.userId, session.user.id));
   const totalValue = holdings.reduce((total, holding) => total + (holding.totalCost ?? holding.units * holding.averagePrice), 0);
   await db.insert(portfolioSnapshots).values({ userId: session.user.id, totalValue });
@@ -66,7 +66,7 @@ export async function updateAsset(_state: AssetFormState, formData: FormData): P
   if (!parsed.success) return { error: "Check the asset details and try again.", success: false };
   const { id, ...asset } = parsed.data;
   if (!await validGroupId(asset.groupId, session.user.id)) return { error: "Choose a valid asset group.", success: false };
-  await db.update(assets).set({ ...asset, symbol: asset.symbol.toUpperCase(), dividendYield: asset.category === "Stocks" ? asset.dividendYield ?? null : null }).where(and(eq(assets.id, id), eq(assets.userId, session.user.id)));
+  await db.update(assets).set({ ...asset, symbol: asset.symbol.toUpperCase(), dividendYield: asset.category === "Stocks" || asset.category === "TSD" ? asset.dividendYield ?? null : null }).where(and(eq(assets.id, id), eq(assets.userId, session.user.id)));
   const holdings = await db.select({ units: assets.units, averagePrice: assets.averagePrice, totalCost: assets.totalCost }).from(assets).where(eq(assets.userId, session.user.id));
   const totalValue = holdings.reduce((total, holding) => total + (holding.totalCost ?? holding.units * holding.averagePrice), 0);
   await db.insert(portfolioSnapshots).values({ userId: session.user.id, totalValue });
@@ -227,7 +227,7 @@ export async function updateAssetGroupValueTransactions(formData: FormData): Pro
   const ownedTransactions = await db.select({ id: assetGroupValueTransactions.id }).from(assetGroupValueTransactions).where(and(eq(assetGroupValueTransactions.userId, session.user.id), inArray(assetGroupValueTransactions.id, ids)));
   if (ownedTransactions.length !== ids.length) return { error: "One or more group-value transactions could not be found.", success: false };
   await db.transaction(async (tx) => {
-    await Promise.all(parsed.data.updates.map((update) => tx.update(assetGroupValueTransactions).set({ totalValue: update.totalValue, recordedAt: new Date(`${parsed.data.recordedAt}T12:00:00`) }).where(and(eq(assetGroupValueTransactions.id, update.id), eq(assetGroupValueTransactions.userId, session.user.id)))));
+    await Promise.all(parsed.data.updates.map((update) => tx.update(assetGroupValueTransactions).set({ totalValue: update.totalValue, totalCost: update.totalCost, recordedAt: new Date(`${parsed.data.recordedAt}T12:00:00`) }).where(and(eq(assetGroupValueTransactions.id, update.id), eq(assetGroupValueTransactions.userId, session.user.id)))));
   });
   revalidatePath("/");
   return { error: "", success: true };
@@ -235,6 +235,7 @@ export async function updateAssetGroupValueTransactions(formData: FormData): Pro
 
 const dividendSchema = z.object({
   symbol: z.string().trim().min(1).max(30).regex(/^[A-Za-z0-9() -]+$/),
+  currency: z.enum(["USD", "THB"]),
   dividendAmount: z.coerce.number().positive(),
   withholdingTax: z.coerce.number().nonnegative(),
   receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -244,18 +245,30 @@ export async function addDividendTransaction(_state: DividendFormState, formData
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.mustChangePassword) return { error: "Your session has expired. Please sign in again.", success: false };
   const parsed = dividendSchema.safeParse({
-    symbol: formData.get("symbol"), dividendAmount: formData.get("dividendAmount"),
+    symbol: formData.get("symbol"), currency: formData.get("currency"), dividendAmount: formData.get("dividendAmount"),
     withholdingTax: formData.get("withholdingTax") || 0, receivedAt: formData.get("receivedAt"),
   });
   if (!parsed.success) return { error: "Check the dividend details and try again.", success: false };
   const transaction = parsed.data;
   const symbol = transaction.symbol.toUpperCase();
-  const [asset] = await db.select({ id: assets.id }).from(assets).where(and(eq(assets.userId, session.user.id), eq(assets.symbol, symbol), eq(assets.category, "Stocks"))).limit(1);
-  if (!asset) return { error: "Choose a stock symbol from your asset list.", success: false };
   await db.insert(dividendTransactions).values({
     userId: session.user.id, symbol, dividendAmount: transaction.dividendAmount,
-    withholdingTax: transaction.withholdingTax, receivedAt: new Date(`${transaction.receivedAt}T12:00:00`),
+    withholdingTax: transaction.withholdingTax, currency: transaction.currency, receivedAt: new Date(`${transaction.receivedAt}T12:00:00`),
   });
   revalidatePath("/assets");
+  return { error: "", success: true };
+}
+
+const editDividendSchema = dividendSchema.extend({ id: z.coerce.number().int().positive() });
+
+export async function updateDividendTransaction(_state: DividendFormState, formData: FormData): Promise<DividendFormState> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session || session.user.mustChangePassword) return { error: "Your session has expired. Please sign in again.", success: false };
+  const parsed = editDividendSchema.safeParse({ id: formData.get("id"), symbol: formData.get("symbol"), currency: formData.get("currency"), dividendAmount: formData.get("dividendAmount"), withholdingTax: formData.get("withholdingTax") || 0, receivedAt: formData.get("receivedAt") });
+  if (!parsed.success) return { error: "Check the dividend details and try again.", success: false };
+  const transaction = parsed.data;
+  await db.update(dividendTransactions).set({ symbol: transaction.symbol.toUpperCase(), currency: transaction.currency, dividendAmount: transaction.dividendAmount, withholdingTax: transaction.withholdingTax, receivedAt: new Date(`${transaction.receivedAt}T12:00:00`) }).where(and(eq(dividendTransactions.id, transaction.id), eq(dividendTransactions.userId, session.user.id)));
+  revalidatePath("/");
+  revalidatePath("/dividends");
   return { error: "", success: true };
 }

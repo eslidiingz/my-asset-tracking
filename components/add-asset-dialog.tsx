@@ -7,9 +7,10 @@ import { addAsset, type AssetFormState } from "@/app/actions/assets";
 import type { AssetGroup } from "@/lib/db";
 import { AssetGroupSelect } from "@/components/ui/asset-group-select";
 import { useToast } from "@/components/ui/toast-provider";
+import { Tabs, TabsList, TabsTrigger } from "@/components/motion/tabs";
 
 const initialState: AssetFormState = { error: "", success: false };
-const categories = ["Stocks", "Crypto", "Cash", "Property", "Mutual Fund", "Gold", "Private Fund", "TSD"];
+const categories = ["Stocks", "Crypto", "Mutual Fund", "Gold", "Private Fund", "TSD"];
 const colors = ["#c8ff52", "#72ddf7", "#bc8cff", "#ffb86c"];
 type FieldName = "symbol" | "units" | "averagePrice" | "totalCost" | "dividendYield";
 type FieldErrors = Partial<Record<FieldName, string>>;
@@ -28,7 +29,7 @@ function validate(formData: FormData, category: string): FieldErrors {
   if (category !== "Private Fund" && !averagePrice) errors.averagePrice = "Enter your average price.";
   else if (averagePrice && (!Number.isFinite(Number(averagePrice)) || Number(averagePrice) < 0)) errors.averagePrice = "Average price cannot be negative.";
   if (totalCost && (!Number.isFinite(Number(totalCost)) || Number(totalCost) < 0)) errors.totalCost = "Total cost cannot be negative.";
-  if (category === "Stocks" && dividendYield && (!Number.isFinite(Number(dividendYield)) || Number(dividendYield) < 0 || Number(dividendYield) > 100)) errors.dividendYield = "Use a value between 0 and 100.";
+  if ((category === "Stocks" || category === "TSD") && dividendYield && (!Number.isFinite(Number(dividendYield)) || Number(dividendYield) < 0 || Number(dividendYield) > 100)) errors.dividendYield = "Use a value between 0 and 100.";
   return errors;
 }
 
@@ -57,7 +58,7 @@ export function AddAssetDialog({ groups }: { groups: AssetGroup[] }) {
       <div className="flex items-start justify-between gap-4"><div><Dialog.Title className="text-xl font-extrabold tracking-[-.04em]">Add an asset</Dialog.Title><Dialog.Description className="mt-1 text-xs text-muted">A snapshot is saved whenever your portfolio changes.</Dialog.Description></div><Dialog.Close className="icon-button" aria-label="Close"><X size={17}/></Dialog.Close></div>
       <form action={action} noValidate onSubmit={handleSubmit} className="mt-6 space-y-4">
         <Field label="Symbol" name="symbol" error={errors.symbol} onChange={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/[^A-Za-z0-9() -]/g, "").toUpperCase(); clearError("symbol"); }} placeholder="AAPL" autoCapitalize="characters" autoCorrect="off" inputMode="text" lang="en" pattern="[A-Za-z0-9() -]+" maxLength={30} />
-        <fieldset><legend className="asset-field-label">Asset class</legend><div className="asset-option-grid" role="radiogroup" aria-label="Asset class">{categories.map((option) => <label key={option} className="asset-option" data-active={category === option}><input type="radio" name="category" value={option} checked={category === option} onChange={() => setCategory(option)} className="sr-only"/>{category === option && <Check size={14}/>} {option}</label>)}</div></fieldset>
+        <fieldset><legend className="asset-field-label">Asset class</legend><input type="hidden" name="category" value={category}/><Tabs value={category} onValueChange={setCategory} variant="segment" className="w-full"><TabsList className="grid w-full grid-cols-2 gap-2 rounded-none border-0 bg-transparent p-0 [&>div]:w-full [&>div]:rounded-xl [&>div]:border [&>div]:border-line">{categories.map((option) => <TabsTrigger key={option} value={option} className={category === option ? "h-10 w-full rounded-xl text-sm font-extrabold text-[#10140a] hover:text-[#10140a]" : "h-10 w-full rounded-xl text-sm font-bold text-muted hover:text-ink"} indicatorClassName="bg-accent">{option}</TabsTrigger>)}</TabsList></Tabs></fieldset>
         <label className="auth-field"><span>Asset group</span><AssetGroupSelect name="groupId" groups={groups} value={groupId} onValueChange={setGroupId}/></label>
         <div className="grid grid-cols-2 gap-3">
           <Field label={category === "Private Fund" ? "Units (optional)" : "Units"} name="units" type="number" error={errors.units} onChange={() => clearError("units")} placeholder="0" min="0" step="any" required={category !== "Private Fund"} />
@@ -65,7 +66,7 @@ export function AddAssetDialog({ groups }: { groups: AssetGroup[] }) {
         </div>
         <Field label={`Total cost (${priceCurrency})`} name="totalCost" type="number" error={errors.totalCost} onChange={() => clearError("totalCost")} placeholder="Optional — calculated from units × average price" min="0" step="any" required={false} />
         <div className="grid grid-cols-2 gap-3">
-          {category === "Stocks" ? <div className="col-span-2"><Field label="US dividend yield (%)" name="dividendYield" type="number" error={errors.dividendYield} onChange={() => clearError("dividendYield")} placeholder="e.g. 0.44" min="0" max="100" step=".01" required={false} /></div> : <fieldset className="col-span-2"><legend className="asset-field-label">Accent color</legend><input type="hidden" name="color" value={color} autoComplete="off"/><div className="asset-color-grid" role="group" aria-label="Accent color">{colors.map((option) => <button key={option} type="button" className="asset-color" data-active={color === option} aria-label={`Use ${option} accent`} aria-pressed={color === option} onClick={() => setColor(option)} style={{ "--asset-color": option } as React.CSSProperties}>{color === option && <Check size={14}/>}</button>)}</div></fieldset>}
+          {category === "Stocks" || category === "TSD" ? <div className="col-span-2"><Field label={`${category === "TSD" ? "Thai" : "US"} dividend yield (%)`} name="dividendYield" type="number" error={errors.dividendYield} onChange={() => clearError("dividendYield")} placeholder="e.g. 0.44" min="0" max="100" step=".01" required={false} /></div> : <fieldset className="col-span-2"><legend className="asset-field-label">Accent color</legend><input type="hidden" name="color" value={color} autoComplete="off"/><div className="asset-color-grid" role="group" aria-label="Accent color">{colors.map((option) => <button key={option} type="button" className="asset-color" data-active={color === option} aria-label={`Use ${option} accent`} aria-pressed={color === option} onClick={() => setColor(option)} style={{ "--asset-color": option } as React.CSSProperties}>{color === option && <Check size={14}/>}</button>)}</div></fieldset>}
         </div>
         {state.error && <p role="alert" className="rounded-xl border border-negative/20 bg-negative/10 px-3 py-2.5 text-xs font-semibold text-negative">{state.error}</p>}
         <button disabled={pending} className="auth-submit">{pending ? <LoaderCircle size={17} className="animate-spin"/> : <Plus size={17}/>} {pending ? "Saving…" : "Save asset"}</button>

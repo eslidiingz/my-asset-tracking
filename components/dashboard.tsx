@@ -9,7 +9,7 @@ import { DividendIncomeCard } from "@/components/dividend-income-card";
 import Link from "next/link";
 
 const allocationColors: Record<string, string> = { Stocks: "#c8ff52", Property: "#9478ff", Cash: "#5de4c7", Crypto: "#f1bb5b", "Mutual Fund": "#72ddf7", Gold: "#ffb86c", "Private Fund": "#bc8cff", TSD: "#74d99c" };
-type DividendTransaction = { id: number; dividendAmount: number; withholdingTax: number; receivedAt: Date };
+type DividendTransaction = { id: number; currency: "USD" | "THB"; dividendAmount: number; withholdingTax: number; receivedAt: Date };
 
 export function Dashboard({ assets, groups, groupValueTransactions, dividendTransactions, usdToThbRate }: { assets: Asset[]; groups: AssetGroup[]; groupValueTransactions: AssetGroupValueTransaction[]; dividendTransactions: DividendTransaction[]; usdToThbRate: number | null }) {
   const total = assets.reduce((sum, asset) => sum + assetCost(asset), 0);
