@@ -69,7 +69,7 @@ export function GroupValueHistory({ groups, transactions }: { groups: AssetGroup
       latestPointByMonth.set(month, { point, index });
     });
 
-    return [...latestPointByMonth.values()].slice(-6).map(({ point }) => point);
+    return [...latestPointByMonth.values()].slice(-12).map(({ point }) => point);
   }, [points]);
   const { path, area, yAxisLabels } = useMemo(() => {
     const values = chartPoints.map((point) => point.totalValue);
