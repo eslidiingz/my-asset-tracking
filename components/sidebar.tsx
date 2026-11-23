@@ -27,7 +27,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
   const mounted = useMounted();
   if (!mounted) return null;
 
-  return <aside className="hidden h-screen w-[232px] shrink-0 border-r border-line bg-surface px-4 py-5 lg:flex lg:flex-col">
+  return <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 border-r border-line bg-surface px-4 py-5 lg:flex lg:flex-col">
     <div className="flex items-center justify-between px-2">
       <div className="flex items-center gap-2.5"><span className="grid size-8 place-items-center rounded-xl bg-accent text-sm font-extrabold text-[#11150d]">L</span><span className="text-[17px] font-extrabold tracking-[-.04em]">ledgerly</span></div>
       <button aria-label="Collapse navigation" className="text-muted hover:text-ink"><PanelLeftClose size={18} /></button>
